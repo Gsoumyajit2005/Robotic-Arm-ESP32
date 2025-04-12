@@ -4,7 +4,7 @@ import requests
 import threading
 
 # ESP32 Server Details
-ESP32_IP = "http://192.168.0.113/"  # Replace with ESP32's actual IP
+ESP32_IP = "http://192.168.0.213/"  # Replace with ESP32's actual IP
 
 # Color ranges in HSV
 COLOR_RANGES = {
@@ -17,7 +17,7 @@ COLOR_RANGES = {
 }
 
 # Capture video from phone camera
-cap = cv2.VideoCapture("http://192.168.0.140:4747/video")
+cap = cv2.VideoCapture("http://192.168.0.215:4747/video")
 
 detected_color = None  # Last detected color
 send_lock = threading.Lock()  # Prevent multiple requests at the same time
@@ -79,6 +79,7 @@ while True:
 
     # Show output frame (video continues running)
     cv2.imshow('Object Detection', frame)
+    frame = cv2.resize(frame, (600, 420))  # Or smaller
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
