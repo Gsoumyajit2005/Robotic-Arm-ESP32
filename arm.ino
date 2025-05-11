@@ -6,6 +6,12 @@ const int servo2Pin = 26;  // GPIO for Servo 2
 const int servo3Pin = 33;  // GPIO for Servo 2
 const int servo4Pin = 32;  // GPIO for Servo 2
 
+const int potPin = 34;     // Potentiometer connected to GPIO 34
+
+bool potControlEnabled = true;  // true = potentiometer mode, false = web/app control
+int lastPotAngle = 0;           // store last potentiometer angle
+
+
 Servo servo1;
 Servo servo2;
 Servo servo3;
@@ -64,6 +70,7 @@ String getHTML() {
       
       <button id="recordBtn" onclick="toggleRecord()">Record</button>
       <button id="replayBtn" onclick="replayMovements()">Replay</button>
+      <button onclick="togglePot()">Toggle Potentiometer Control</button>
       
       <script>
         let isRecording = false;
@@ -96,6 +103,8 @@ String getHTML() {
           xhr.send();
         }
 
+
+
         function toggleRecord() {
           var xhr = new XMLHttpRequest();
           xhr.open("GET", "/toggleRecord", true);
@@ -117,6 +126,12 @@ String getHTML() {
           xhr.open("GET", "/replay", true);
           xhr.send();
         }
+
+        function togglePot() {
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/togglePotControl", true);
+          xhr.send();
+        }
       </script>
     </body>
     </html>
@@ -131,6 +146,16 @@ void smoothMove(Servo &servo, int startAngle, int targetAngle, int steps, int de
     delay(delayMs);
   }
 }
+
+int getStablePotValue(int samples = 10) {
+  long total = 0;
+  for (int i = 0; i < samples; i++) {
+    total += analogRead(potPin);
+    delayMicroseconds(500);  // Small delay between reads
+  }
+  return total / samples;
+}
+
 
 
 void setup() {
@@ -154,7 +179,7 @@ void setup() {
 
 
   // Connect to Wi-Fi
-  WiFi.begin("SOUMYAJIT", "**********");
+  WiFi.begin("MainAuditorium2", "hacktonix2025");
   Serial.print("Connecting to Wi-Fi");
 
   while (WiFi.status() != WL_CONNECTED) {
@@ -164,7 +189,7 @@ void setup() {
 
   Serial.println("\nConnected to Wi-Fi");
   Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());  // ✅ Print IP address
+  Serial.println(WiFi.localIP());  // ✅ Print IP address           
 
   // Serve web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -176,9 +201,12 @@ void setup() {
     if (request->hasParam("angle")) {
       String angleParam = request->getParam("angle")->value();
       int angle = angleParam.toInt();
+
+      // Automatically disable pot control when command is received via web
+      potControlEnabled = false;
       int currentAngle1 = servo1.read();
-      smoothMove(servo1, currentAngle1, angle, 50, 10);
-      // servo1.write(angle);
+      // smoothMove(servo1, currentAngle1, angle, 50, 10);
+      servo1.write(angle);
       Serial.printf("Servo 1 angle: %d\n", angle);
       
       // Record angle if recording is active
@@ -195,8 +223,8 @@ void setup() {
       String angleParam = request->getParam("angle")->value();
       int angle = angleParam.toInt();
       int currentAngle2 = servo2.read();
-      smoothMove(servo2, currentAngle2, angle, 50, 10);
-      // servo2.write(angle);
+      // smoothMove(servo2, currentAngle2, angle, 50, 10);
+      servo2.write(angle);
       Serial.printf("Servo 2 angle: %d\n", angle);
       
       // Record angle if recording is active
@@ -213,8 +241,8 @@ void setup() {
       String angleParam = request->getParam("angle")->value();
       int angle = angleParam.toInt();
       int currentAngle = servo3.read();
-      smoothMove(servo3, currentAngle, angle, 10, 10);
-      // servo3.write(angle);
+      // smoothMove(servo3, currentAngle, angle, 10, 10);
+      servo3.write(angle);
       Serial.printf("Servo 3 angle: %d\n", angle);
       
       // Record angle if recording is active
@@ -270,47 +298,34 @@ server.on("/servo4", HTTP_GET, [](AsyncWebServerRequest *request) {
       String color = request->getParam("data")->value();
       if(color == "green") {
 
-        // smoothMove(servo1, 125, 175, 50, 10);
-
-                
-        // servo3.write(52);
-        // delay(1000);
-
-        // servo4.write(81);
-        // delay(1000);
-        // servo4.write(150);
-        // delay(1000);
-
-        //  servo1.write(155);
-        //  delay(1000);
-
-        // servo3.write(180);
-        // delay(1000);
-        // servo1.write(155);
-        // delay(1000);
-        // servo4.write(81);
-        // delay(1000);
-
-
-        servo3.write(20);
+        servo4.write(90);
         delay(1000);
-        servo1.write(175);
+        servo3.write(90);
         delay(1000);
-        servo4.write(95);
+        servo1.write(80);
         delay(1000);
-        servo4.write(153);
+        servo2.write(140);
         delay(1000);
-        servo1.write(110);
+        
+
+        servo4.write(0);
         delay(1000);
-        servo3.write(170);
+        servo3.write(70);
         delay(1000);
-        servo4.write(95);
+        servo1.write(124);
+        delay(1000);
+        servo2.write(37);
+        delay(1000);
+        servo3.write(155);
         delay(1000);
 
-
-
-
-
+        servo1.write(69);
+        delay(1000);
+        servo2.write(124);
+        delay(1000);
+        
+        servo4.write(90);
+        delay(1000); 
       }
       // if(color == "green"){
       //     servo3.write(20);
@@ -321,39 +336,48 @@ server.on("/servo4", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "OK");
   });
 
+  server.on("/togglePotControl", HTTP_GET, [](AsyncWebServerRequest *request) {
+  potControlEnabled = !potControlEnabled;
+  Serial.printf("Potentiometer control %s\n", potControlEnabled ? "ENABLED" : "DISABLED");
+  request->send(200, "text/plain", potControlEnabled ? "Potentiometer mode ON" : "Web control mode ON");
+
+
+});
+
+
   server.begin();
 }
 
 void loop() {
-  if (isReplaying) {
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= replayInterval) {
-      previousMillis = currentMillis;
+  // if (isReplaying) {
+  //   unsigned long currentMillis = millis();
+  //   if (currentMillis - previousMillis >= replayInterval) {
+  //     previousMillis = currentMillis;
 
-      if (replayIndex < stepCount) {
-        // Get current angles
-        int currentAngle1 = servo1.read();
-        int currentAngle2 = servo2.read();
-        int currentAngle3 = servo3.read();
-        int currentAngle4 = servo4.read();
+  //     if (replayIndex < stepCount) {
+  //       // Get current angles
+  //       int currentAngle1 = servo1.read();
+  //       int currentAngle2 = servo2.read();
+  //       int currentAngle3 = servo3.read();
+  //       int currentAngle4 = servo4.read();
 
-        // Smoothly move to the recorded angles
-        smoothMove(servo1, currentAngle1, servo1Angles[replayIndex], 50, 10);
-        delay(1000);
-        smoothMove(servo2, currentAngle2, servo2Angles[replayIndex], 50, 10);
-        delay(1000);
-        smoothMove(servo3, currentAngle3, servo3Angles[replayIndex], 50, 10);
-        delay(1000);
-        smoothMove(servo4, currentAngle4, servo4Angles[replayIndex], 10, 10);
-        delay(1000);
+  //       // Smoothly move to the recorded angles
+  //       smoothMove(servo1, currentAngle1, servo1Angles[replayIndex], 50, 10);
+  //       delay(1000);
+  //       smoothMove(servo2, currentAngle2, servo2Angles[replayIndex], 50, 10);
+  //       delay(1000);
+  //       smoothMove(servo3, currentAngle3, servo3Angles[replayIndex], 50, 10);
+  //       delay(1000);
+  //       smoothMove(servo4, currentAngle4, servo4Angles[replayIndex], 10, 10);
+  //       delay(1000);
 
-        Serial.printf("Replaying step %d: Servo1=%d, Servo2=%d\n, Servo3=%d\n, Servo4=%d\n", 
-                      replayIndex, servo1Angles[replayIndex], servo2Angles[replayIndex], servo3Angles[replayIndex], servo4Angles[replayIndex]);
-        replayIndex++;
-      } else {
-        isReplaying = false;
-        Serial.println("Replay finished.");
-      }
-    }
-  }
+  //       Serial.printf("Replaying step %d: Servo1=%d, Servo2=%d\n, Servo3=%d\n, Servo4=%d\n", 
+  //                     replayIndex, servo1Angles[replayIndex], servo2Angles[replayIndex], servo3Angles[replayIndex], servo4Angles[replayIndex]);
+  //       replayIndex++;
+  //     } else {
+  //       isReplaying = false;
+  //       Serial.println("Replay finished.");
+  //     }
+  //   }
+  // }
 }
